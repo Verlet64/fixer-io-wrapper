@@ -1,24 +1,14 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Main where
+module Web.Fixer.Api.Client (getGbpRates) where
 
-import Web.Scotty (ScottyM, get, json, scotty)
 import Network.Wreq (Response, Options, getWith, defaults, param, responseBody)
 import Data.Text
 import Data.Aeson.Lens (key, _Object)
 import Data.Aeson.Types (Object)
 import Control.Lens
 import Control.Monad
-import Control.Monad.IO.Class
 import Data.ByteString.Lazy (ByteString)
-
-server :: ScottyM ()
-server = get "/gbp" $ do
-            response <- liftIO getGbpRates
-            json response
-
-main :: IO ()
-main = scotty 1234 server
 
 getBaseFixerUrl :: String
 getBaseFixerUrl = "http://api.fixer.io/latest"

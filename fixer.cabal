@@ -13,15 +13,22 @@ build-type:          Simple
 cabal-version:       >=1.10
 extra-source-files:  README.md
 
-executable fixer
+library
   hs-source-dirs:      src
-  main-is:             Main.hs
-  default-language:    Haskell2010
+  exposed-modules:     Web.Fixer.Api.Client
   build-depends:       base >= 4.7 && < 5,
-                       scotty,
                        aeson,
                        lens-aeson,
                        lens,
                        text,
                        bytestring,
                        wreq
+
+executable fixer-server
+  hs-source-dirs:      exec
+  main-is:             Main.hs
+  default-language:    Haskell2010
+  build-depends:       base >= 4.7 && < 5,
+                       scotty,
+                       fixer
+  
