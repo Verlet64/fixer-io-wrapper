@@ -13,14 +13,12 @@ import Control.Monad.IO.Class
 import Data.ByteString.Lazy (ByteString)
 
 server :: S.ScottyM ()
-server = do
-    S.get "/gbp" $ do
-        response <- liftIO getGbpRates
-        S.json response
+server = S.get "/gbp" $ do
+            response <- liftIO getGbpRates
+            S.json response
 
 main :: IO ()
-main = do
-    S.scotty 1234 server
+main = S.scotty 1234 server
 
 getBaseFixerUrl :: String
 getBaseFixerUrl = "http://api.fixer.io/latest"
@@ -33,8 +31,8 @@ getOpts key values = defaults & param key .~ values
 
 getGbpRates :: IO Object
 getGbpRates = do
-  response <- (getWith gbpAsBaseCurrency getBaseFixerUrl)
-  (return . parseRatesFromResponseBody . getResponseBody) response
+  response <- getWith gbpAsBaseCurrency getBaseFixerUrl
+  return $ (parseRatesFromResponseBody . getResponseBody) response
 
 parseRatesFromResponseBody :: ByteString -> Object
 parseRatesFromResponseBody r = r ^. key "rates" . _Object
