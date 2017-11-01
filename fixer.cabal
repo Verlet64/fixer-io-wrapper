@@ -18,6 +18,7 @@ library
   exposed-modules:     Web.Fixer.Api.Client
   build-depends:       base >= 4.7 && < 5,
                        aeson,
+                       mtl,
                        lens-aeson,
                        lens,
                        text,
@@ -30,5 +31,8 @@ executable fixer-server
   default-language:    Haskell2010
   build-depends:       base >= 4.7 && < 5,
                        scotty,
+                       mtl,
+                       aeson,
+                       text,
                        fixer
   
