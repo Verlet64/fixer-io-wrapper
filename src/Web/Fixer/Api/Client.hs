@@ -1,37 +1,63 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE DeriveGeneric #-}
 
-module Web.Fixer.Api.Client (getGbpRates, CurrencyData) where
+module Web.Fixer.Api.Client where
 
-import Network.Wreq (Response, Options, getWith, defaults, param, responseBody, responseStatus, statusCode)
+import qualified Network.Wreq as W (Response, Options, getWith, defaults, param, responseBody, responseStatus, statusCode)
 import Data.Text
-import Data.Aeson.Lens (key, _Object)
-import Data.Aeson.Types (Object)
+import Data.Aeson
+import Data.Aeson.Lens 
+import Data.Aeson.Types
 import Control.Lens
+import Web.MonadHttp
 import Control.Monad
-import Control.Monad.Except (ExceptT, liftIO, throwError)
+import Control.Monad.IO.Class
+import qualified Data.Map as M
+import Control.Monad.Catch
+import Control.Monad.Except
 import Data.ByteString.Lazy (ByteString)
+import GHC.Generics
 
-type CurrencyData = Object
-type FixerResponse = ExceptT Text IO Object
+type CurrValuePair = (Text, Double)
 
+data HttpClientError = FailedToRetreive
+instance Show HttpClientError where
+  show FailedToRetreive = "Unable to retreive data for request"
+instance Exception HttpClientError
+
+data RawFixerResponse = RawFixerResponse {
+  base :: Text
+  , rates :: M.Map Text Double
+} deriving (Show, Generic)
+instance FromJSON RawFixerResponse
+instance ToJSON RawFixerResponse
+
+data ConversionRate = ConversionRate {
+  fromCurrency :: Text
+  , toCurrency :: Text
+  , rate :: Double
+} deriving (Show, Generic, Eq)
+instance ToJSON ConversionRate
+
+getGbpRates :: (MonadThrow m, MonadIO m, MonadHTTP m) => m [ConversionRate]
+getGbpRates = do 
+  response <- getWith gbpAsBaseCurrency getBaseFixerUrl
+  case getResponseBody response of
+    Just val -> return $ (getConversionRates (base val) (M.toList $ rates val))
+    Nothing -> throwM FailedToRetreive
+  
 getBaseFixerUrl :: String
 getBaseFixerUrl = "http://api.fixer.io/latest"
 
-gbpAsBaseCurrency :: Options
+gbpAsBaseCurrency :: W.Options
 gbpAsBaseCurrency = getOpts "base" ["GBP"]
 
-getOpts :: Text -> [Text] -> Options
-getOpts key values = defaults & param key .~ values 
+getOpts :: Text -> [Text] -> W.Options
+getOpts key values = W.defaults & W.param key .~ values 
 
-getGbpRates :: FixerResponse
-getGbpRates = do
-  response <- liftIO $ getWith gbpAsBaseCurrency getBaseFixerUrl
-  case response ^. responseStatus . statusCode of 
-    200 -> return $ (parseRatesFromResponseBody . getResponseBody) response
-    _   -> throwError "Failed to retreive currency data"
+getConversionRates :: Text -> [CurrValuePair] -> [ConversionRate]
+getConversionRates baseCurrency conversionRates = Prelude.map (\x -> (ConversionRate baseCurrency) (fst x) (snd x)) conversionRates
 
-parseRatesFromResponseBody :: ByteString -> Object
-parseRatesFromResponseBody r = r ^. key "rates" . _Object
-
-getResponseBody :: Response ByteString -> ByteString
-getResponseBody r = r ^. responseBody
+getResponseBody :: W.Response ByteString -> Maybe RawFixerResponse
+getResponseBody r = decode (r ^. W.responseBody) 
