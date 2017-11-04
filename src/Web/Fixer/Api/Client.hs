@@ -1,21 +1,32 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleInstances #-}
+
 
 module Web.Fixer.Api.Client (getGbpRates, MonadHTTP(..)) where
 
 import Web.MonadHttp
-import qualified Network.Wreq as W (Response, Options, defaults, param, responseBody, responseStatus, statusCode)
+import qualified Network.Wreq as W (Response, Options, getWith, defaults, param, responseBody, responseStatus, statusCode)
 import Data.Text
 import Data.Aeson.Lens (key, _Object)
 import Data.Aeson.Types (Object)
 import Control.Lens
 import Control.Monad
-import Control.Monad.Except (ExceptT, liftIO, throwError)
+import qualified Control.Exception as E 
+import Control.Monad.Except
 import Data.ByteString.Lazy (ByteString)
 
-getGbpRates :: MonadHTTP m => m ByteString
-getGbpRates = do 
-          response <- getWith gbpAsBaseCurrency getBaseFixerUrl
-          return $ getResponseBody response
+instance MonadHTTP (ExceptT Text IO) where
+  getWith opts url = do 
+    response <- liftIO $ W.getWith opts url
+    case getStatus response of 
+      200 -> return response
+      _   -> throwError "ruhroh"
+
+getStatus :: W.Response ByteString -> Int
+getStatus r = r ^. W.responseStatus . W.statusCode 
+
+getGbpRates :: (MonadError e m, MonadHTTP m) => ExceptT Text m (W.Response ByteString)
+getGbpRates = getWith gbpAsBaseCurrency getBaseFixerUrl
 
 getBaseFixerUrl :: String
 getBaseFixerUrl = "http://api.fixer.io/latest"
@@ -29,13 +40,5 @@ getOpts key values = W.defaults & W.param key .~ values
 getResponseBody :: W.Response ByteString -> ByteString
 getResponseBody r = r ^. W.responseBody
 
-
--- getGbpRates :: FixerResponse
--- getGbpRates = do
---   response <- liftIO $ getWith gbpAsBaseCurrency getBaseFixerUrl
---   case response ^. responseStatus . statusCode of 
---     200 -> return $ (parseRatesFromResponseBody . getResponseBody) response
---     _   -> throwError "Failed to retreive currency data"
-
--- parseRatesFromResponseBody :: ByteString -> Object
--- parseRatesFromResponseBody r = r ^. key "rates" . _Object
+parseRatesFromResponseBody :: W.Response ByteString -> Object
+parseRatesFromResponseBody r = r ^. W.responseBody . key "rates" . _Object

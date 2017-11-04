@@ -1,10 +1,17 @@
-module Web.MonadHttp (MonadHTTP(..)) where 
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 
-import qualified Network.Wreq as W (Response, Options, getWith)
+module Web.MonadHttp (MonadHTTP(..), HttpClientError) where 
+
+import qualified Network.Wreq as W (Response, Options, getWith, responseStatus, statusCode)
+import Control.Monad.Except
+import Control.Lens
+import Data.Text
+import qualified Control.Exception as E 
 import Data.ByteString.Lazy (ByteString)
 
-class Monad m => MonadHTTP m where 
+
+data HttpClientError = RetreivalError | ClientError 
+
+class (MonadError Text m, Monad m) => MonadHTTP m where 
     getWith :: W.Options -> String -> m (W.Response ByteString)
-  
-instance MonadHTTP IO where
-    getWith = W.getWith
